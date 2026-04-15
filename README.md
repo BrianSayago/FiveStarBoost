@@ -42,8 +42,8 @@ Esta aplicación se construyó pensando en la escalabilidad, la seguridad (multi
 
 ### 2. Motor de Encuestas Inteligente e Interceptación
 - Páginas de encuesta dinámicas tematizadas con los logos y nombres de los respectivos hoteles.
-- **Flujo de Rescate (1 - 3 Estrellas):** Si la calificación es baja, el usuario es llevado a un formulario privado para capturar sus quejas constructivamente, deteniendo las reseñas negativas públicas.
-- **Flujo de Potenciación (4 - 5 Estrellas):** Los usuarios son invitados y redirigidos mediante un CTA a las plataformas donde el hotel quiere acumular más visibilidad (ej. Google, Booking).
+- **Flujo de Rescate (1 - 2 Estrellas):** Si la calificación es baja, el usuario es llevado a un formulario privado para capturar sus quejas constructivamente, deteniendo las reseñas negativas públicas.
+- **Flujo de Potenciación (3 - 4 - 5 Estrellas):** Los usuarios son invitados y redirigidos mediante un CTA a las plataformas donde el hotel quiere acumular más visibilidad (ej. Google, Booking).
 
 ### 3. Alertas Críticas de Tiempo Real
 - Cuando se registra una queja grave, *Supabase Realtime* hace saltar una alerta visual y auditiva de forma instántanea en la pantalla del supervisor del hotel o Super Admin.
@@ -61,13 +61,3 @@ Esta aplicación se construyó pensando en la escalabilidad, la seguridad (multi
 - **Protección IDOR:** Eliminación de dependencias por "Hotel ID" en las URL para prevenir accesos no autorizados, moviendo toda la autorización al server side o a los headers de sesión de las bases de datos de PostgREST.
 - **Data Integrity:** Manejo transaccional en PostgreSQL, con triggers y constraints. Validaciones rigurosas tanto para URLs en la subida de Settings del usuario como para el formato de los correos en la ingesta por CSV.
 
----
-
-## 💼 Cómo mostrar este proyecto en tu Currículum si es PRIVADO
-
-Dado que el código es propietario y la base de tu propio negocio SaaS, la mejor forma de "vender" la experiencia adquirida es:
-
-1. **Crear un Repositorio Público (Portfolio):** Puedes publicar un repositorio que solo contenga este archivo `README.md`, junto a una carpeta con capturas de pantalla de la interfaz o GIFs demostrando cómo llega la alerta en tiempo real. 
-2. **Destacar Soluciones Arquitectónicas:** A los reclutadores no les importa ver el código de un botón, les interesa saber cómo diseñaste el puente asíncrono entre la base de datos (Supabase Webhooks) y tu motor de mailing a través de un Middleware como N8N.
-3. **Resaltar en tu CV las skills duras que dominaste:** "Next.js App Router, Supabase RLS (Multi-tenant Architecture), Automatización por Webhooks con n8n, PostgreSQL."
-4. **Menciona el valor real del producto:** En lugar de decir "Hice un CRUD de huéspedes", pon *"Construí una solución end-to-end B2B diseñada para interceptar quejas y automatizar el Customer Success, orquestando bases de datos en tiempo real y servicios de e-mail automatizado."*
