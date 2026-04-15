@@ -1,6 +1,39 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
+/**
+ * GET /api/hotels
+ *
+ * Returns all hotels the authenticated user belongs to (via hotel_users).
+ * Used by SubscriptionProvider to auto-discover active_hotel_id on first login.
+ */
+export async function GET() {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Fetch hotels where this user has a membership record
+    const { data, error } = await supabase
+      .from('hotel_users')
+      .select('hotel_id, role, hotels(id, name, subscription_status, trial_started_at, trial_ends_at)')
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+
+    // Flatten into a simple hotel list
+    const hotels = (data ?? [])
+      .map((row: any) => row.hotels)
+      .filter(Boolean);
+
+    return NextResponse.json(hotels);
+  } catch (error: any) {
+    console.error('[GET /api/hotels] Error:', error);
+    return NextResponse.json({ error: error.message || 'Error interno' }, { status: 500 });
+  }
+}
+
+
 export async function POST(request: Request) {
   try {
     const supabase = createClient();

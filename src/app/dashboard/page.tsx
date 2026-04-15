@@ -7,6 +7,9 @@ import { AlertPopup } from '@/components/dashboard/AlertPopup';
 import { logout } from '@/app/login/actions';
 import { EditStayModal } from '@/components/dashboard/EditStayModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { SubscriptionProvider } from '@/components/providers/SubscriptionProvider';
+import { TrialBanner } from '@/components/billing/TrialBanner';
+import { PaymentWallModal } from '@/components/billing/PaymentWallModal';
 
 // --- Types ---
 interface DashboardStats {
@@ -39,7 +42,7 @@ interface Stay {
   check_out_date: string;
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [stays, setStays] = useState<Stay[]>([]);
@@ -214,6 +217,9 @@ export default function DashboardPage() {
 
       <div className="relative p-4 sm:p-6 lg:p-8 z-10 w-full">
         <div className="max-w-7xl mx-auto space-y-8">
+
+          {/* Trial Banner — shows during active trial only */}
+          <TrialBanner />
 
           {/* Header */}
           <div className="flex justify-between items-end flex-wrap gap-4 pb-2">
@@ -470,7 +476,28 @@ export default function DashboardPage() {
 
       <AlertPopup />
 
+      {/* Payment Wall — renders fullscreen when trial expired */}
+      <PaymentWallModal />
+
     </div>
+  );
+}
+
+// ─── Active hotel resolution ──────────────────────────────────────────────────
+// Reads active_hotel_id from localStorage, passes it to SubscriptionProvider.
+// For multi-hotel users, this comes from a hotel-switcher UI (future feature).
+export default function DashboardPage() {
+  const [hotelId, setHotelId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('active_hotel_id');
+    setHotelId(stored);
+  }, []);
+
+  return (
+    <SubscriptionProvider hotelId={hotelId}>
+      <DashboardContent />
+    </SubscriptionProvider>
   );
 }
 
