@@ -1,8 +1,8 @@
-# Hotel Reputation Management SaaS
+# Hotel Reputation Management SaaS - FiveStar Boost
 
 ## 🏨 Sobre el Proyecto
 
-Este proyecto es una plataforma B2B (Software as a Service) diseñada para ayudar a los hoteles a gestionar de manera proactiva su reputación online. Su función principal es enviar encuestas de satisfacción a los huéspedes. Si un huésped tiene una experiencia negativa (1 o 2 estrellas), el sistema bloquea la publicación en sitios públicos y alerta en tiempo real a la gerencia del hotel para resolver el problema internamente. Si la experiencia es positiva (4 o 5 estrellas), se redirige automáticamente al huésped a plataformas como Google Reviews o TripAdvisor para potenciar la calificación pública del hotel.
+Este proyecto es una plataforma B2B (Software as a Service) diseñada para ayudar a los hoteles a gestionar de manera proactiva su reputación online. Su función principal es enviar encuestas de satisfacción a los huéspedes. Si un huésped tiene una experiencia negativa (1,2 o 3 estrellas), el sistema bloquea la publicación en sitios públicos y alerta en tiempo real a la gerencia del hotel para resolver el problema internamente. Si la experiencia es positiva (4 o 5 estrellas), se redirige automáticamente al huésped a plataformas como Google Reviews o TripAdvisor para potenciar la calificación pública del hotel.
 
 > **Nota:** Este repositorio es **privado** puesto que constituye el core de un negocio SaaS en fase de producción. Este documento sirve como portafolio técnico y registro arquitectónico detallado.
 
