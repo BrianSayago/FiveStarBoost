@@ -28,7 +28,7 @@ export default function UpdatePasswordPage() {
         supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
           .then(({ data }) => {
             if (data?.session?.user) {
-              setUserEmail(data.session.user.email)
+              setUserEmail(data.session.user.email || null)
             }
             setCheckingSession(false)
             // Optional: Clean URL to prevent token shoulder-surfing
