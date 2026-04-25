@@ -10,6 +10,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { SubscriptionProvider } from '@/components/providers/SubscriptionProvider';
 import { TrialBanner } from '@/components/billing/TrialBanner';
 import { PaymentWallModal } from '@/components/billing/PaymentWallModal';
+import { Star, ArrowUpRight } from 'lucide-react';
 
 // --- Types ---
 interface DashboardStats {
@@ -209,33 +210,47 @@ function DashboardContent() {
   }
 
   return (
-    <div className="min-h-screen relative transition-colors duration-500 overflow-hidden bg-slate-100 dark:bg-[#07090E]">
+    <div className="min-h-screen relative transition-colors duration-500 bg-slate-100 dark:bg-[#07090E]">
       
       {/* Premium Background Orbs (Decorative) */}
-      <div className="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-indigo-500/5 dark:bg-indigo-500/10 blur-[120px] pointer-events-none"></div>
-      <div className="fixed bottom-[-10%] right-[-5%] w-[35vw] h-[35vw] rounded-full bg-blue-500/5 dark:bg-cyan-500/10 blur-[120px] pointer-events-none"></div>
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[60vw] max-w-[500px] aspect-square rounded-full bg-indigo-500/5 dark:bg-indigo-500/10 blur-[100px] md:blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] right-[-5%] w-[50vw] max-w-[400px] aspect-square rounded-full bg-blue-500/5 dark:bg-cyan-500/10 blur-[100px] md:blur-[120px]"></div>
+      </div>
 
       <div className="relative p-4 sm:p-6 lg:p-8 z-10 w-full">
-        <div className="max-w-7xl mx-auto space-y-8">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
 
           {/* Trial Banner — shows during active trial only */}
           <TrialBanner />
 
           {/* Header */}
-          <div className="flex justify-between items-end flex-wrap gap-4 pb-2">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-                Dashboard 
-                {stats?.hotel_name && (
-                   <span className="text-sm font-medium px-3 py-1 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-full border border-slate-200 dark:border-slate-700/50 text-slate-600 dark:text-slate-300 shadow-sm translate-y-[-2px]">
-                     {stats.hotel_name}
-                   </span>
-                )}
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium tracking-wide">Centro de operaciones y calidad en tiempo real</p>
+          <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-4 pb-2">
+            <div className="w-full lg:w-auto">
+              <div className="flex items-center gap-4 mb-2">
+                {/* Brand Logo - Scaled specifically for Dashboard Navbar */}
+                <img 
+                  src="/logo-icon.png" 
+                  alt="Five Star Boost Icon" 
+                  className="w-14 h-14 md:w-16 md:h-16 object-contain drop-shadow-md shrink-0"
+                />
+                
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center flex-wrap gap-2 sm:gap-3">
+                  Centro de Operaciones
+                  {stats?.hotel_name && (
+                     <span className="text-xs sm:text-sm font-medium px-3 py-1 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-full border border-slate-200 dark:border-slate-700/50 text-slate-600 dark:text-slate-300 shadow-sm translate-y-[-2px]">
+                       {stats.hotel_name}
+                     </span>
+                  )}
+                </h1>
+              </div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium tracking-wide">
+                <span className="font-bold tracking-tight text-slate-700 dark:text-slate-300 mr-2">Five Star Boost</span> 
+                | Optimize Your Hotel Reputation
+              </p>
             </div>
 
-            <div className="flex items-center gap-3 bg-white/40 dark:bg-slate-900/40 p-1.5 rounded-2xl backdrop-blur-xl border border-white/60 dark:border-slate-800/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 bg-white/40 dark:bg-slate-900/40 p-1.5 rounded-2xl backdrop-blur-xl border border-white/60 dark:border-slate-800/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full lg:w-auto mt-2 lg:mt-0 max-w-full">
               <button 
                 onClick={() => window.location.href = `/dashboard/import`}
                 className="hover:bg-white dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300"
@@ -250,7 +265,7 @@ function DashboardContent() {
                 + Registrar Ingreso
               </button>
 
-              <div className="h-6 w-px bg-slate-300/50 dark:bg-slate-700 mx-1"></div>
+              <div className="hidden sm:block h-6 w-px bg-slate-300/50 dark:bg-slate-700 mx-1"></div>
               
               {stats?.is_super_admin && (
                 <button 

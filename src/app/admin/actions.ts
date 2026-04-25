@@ -26,22 +26,21 @@ export async function createHotelOnboarding(formData: FormData) {
   // 1. Authorization
   const authorized = await isAuthorized()
   if (!authorized) {
-    return { success: false, error: 'Unauthorized Access' }
+    return { success: false, error: 'Acceso no autorizado' }
   }
 
   const name = formData.get('name') as string
   const email = formData.get('email') as string
-  const password = formData.get('password') as string
   const timezone = formData.get('timezone') as string || 'UTC'
 
-  if (!name || !email || !password) {
-    return { success: false, error: 'Name, email and password are required' }
+  if (!name || !email) {
+    return { success: false, error: 'Nombre y email son obligatorios' }
   }
 
   const adminSupabase = createAdminClient()
 
   try {
-    // 2. Insert into Hotels bypass RLS (using service role)
+    // 2. Insert into Hotels
     const { data: hotel, error: hotelError } = await adminSupabase
       .from('hotels')
       .insert({
@@ -54,34 +53,87 @@ export async function createHotelOnboarding(formData: FormData) {
 
     if (hotelError || !hotel) {
       console.error('Error creating hotel:', hotelError)
-      return { success: false, error: 'Failed to create hotel record.' }
+      return { success: false, error: 'Error al crear el registro del hotel.' }
     }
 
     const hotelId = hotel.id
 
-    // 3. Create Auth User
-    const { data: userData, error: authError } = await adminSupabase.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true, // Auto confirm so they can login immediately
-    })
+    // 3. Check if user already exists
+    let userId: string;
+    const { data: { users } } = await adminSupabase.auth.admin.listUsers()
+    const existingUser = users.find((u: any) => u.email === email)
 
-    if (authError || !userData.user) {
-      // Rollback hotel creation if user fails? 
-      await adminSupabase.from('hotels').delete().eq('id', hotelId)
-      console.error('Error creating user:', authError)
-      return { success: false, error: authError?.message || 'Failed to create user account.' }
+    if (existingUser) {
+      userId = existingUser.id
+      // For existing users, we just trigger a recovery email which functions as a notification/setup link
+      if (process.env.NODE_ENV === 'development') {
+        const { data, error } = await adminSupabase.auth.admin.generateLink({
+          type: 'recovery',
+          email,
+          options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/update-password` }
+        })
+        if (!error && data?.properties?.action_link) {
+          console.log('\n\n🟢 MODO DEV - LINK DE RECUPERACIÓN GENERADO:');
+          console.log(data.properties.action_link);
+          console.log('👆 (Haz CTRL+Click sobre el enlace para simular que abriste el email sin gastar la cuota)\n\n');
+        }
+      } else {
+        await adminSupabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/update-password`
+        })
+      }
+    } else {
+      // Invite new User
+      if (process.env.NODE_ENV === 'development') {
+        const { data, error } = await adminSupabase.auth.admin.generateLink({
+          type: 'invite',
+          email,
+          options: {
+            data: { hotel_id: hotelId },
+            redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/update-password`
+          }
+        })
+        if (error || !data.user) {
+          await adminSupabase.from('hotels').delete().eq('id', hotelId)
+          return { success: false, error: error?.message || 'Error al generar la invitación.' }
+        }
+        console.log('\n\n🟢 MODO DEV - LINK DE INVITACIÓN GENERADO:');
+        console.log(data.properties?.action_link);
+        console.log('👆 (Haz CTRL+Click sobre el enlace para simular que abriste el email sin gastar la cuota)\n\n');
+        userId = data.user.id
+      } else {
+        const { data: inviteData, error: inviteError } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
+          data: { hotel_id: hotelId },
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/update-password`
+        })
+
+        if (inviteError || !inviteData.user) {
+          // Rollback hotel if invitation fails
+          await adminSupabase.from('hotels').delete().eq('id', hotelId)
+          console.error('Error inviting user:', inviteError)
+          return { success: false, error: inviteError?.message || 'Error al enviar la invitación.' }
+        }
+        userId = inviteData.user.id
+      }
     }
 
-    // 4. Update App Metadata to bind user to Hotel
-    const { error: metaError } = await adminSupabase.auth.admin.updateUserById(
-      userData.user.id,
-      { app_metadata: { hotel_id: hotelId } }
-    )
+    // 4. Create Profile & Hotel Association
+    const { error: profileError } = await adminSupabase.from('profiles').insert({
+      id: userId,
+      email: email,
+      role: 'OWNER'
+    })
 
-    if (metaError) {
-      console.error('Error updating metadata:', metaError)
-      return { success: false, error: 'Failed to link user to hotel.' }
+    const { error: associationError } = await adminSupabase.from('hotel_users').insert({
+      hotel_id: hotelId,
+      user_id: userId,
+      role: 'OWNER'
+    })
+
+    if (profileError || associationError) {
+      console.error('Error linking user:', profileError || associationError)
+      // We don't rollback everything here as the user is already invited, 
+      // but in production you might want more robust handling.
     }
 
     revalidatePath('/admin')
@@ -89,14 +141,14 @@ export async function createHotelOnboarding(formData: FormData) {
 
   } catch (err: any) {
     console.error('Unexpected error during hotel creation:', err)
-    return { success: false, error: 'Unexpected error occurred.' }
+    return { success: false, error: 'Ocurrió un error inesperado.' }
   }
 }
 
 export async function deleteHotel(hotelId: string) {
   const authorized = await isAuthorized()
   if (!authorized) {
-    return { success: false, error: 'Unauthorized Access' }
+    return { success: false, error: 'Acceso no autorizado' }
   }
 
   if (!hotelId) return { success: false, error: 'Hotel ID is required' }
@@ -104,40 +156,48 @@ export async function deleteHotel(hotelId: string) {
   const adminSupabase = createAdminClient()
 
   try {
-    // 1. Delete associated users in Auth
-    const { data: { users }, error: usersError } = await adminSupabase.auth.admin.listUsers();
-    
-    if (!usersError && users) {
-      const hotelUsers = users.filter((u: any) => 
-        u.app_metadata?.hotel_id === hotelId || u.user_metadata?.hotel_id === hotelId
-      );
-      
-      for (const user of hotelUsers) {
-        await adminSupabase.auth.admin.deleteUser(user.id);
+    // 1. Fetch users belonging to this hotel
+    const { data: members, error: membersError } = await adminSupabase
+      .from('hotel_users')
+      .select('user_id')
+      .eq('hotel_id', hotelId)
+
+    if (!membersError && members) {
+      for (const member of members) {
+        // IMPORTANT: Check if user belongs to other hotels before deleting from Auth
+        const { count, error: countError } = await adminSupabase
+          .from('hotel_users')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', member.user_id)
+        
+        if (!countError && count === 1) {
+          // If they only belong to this hotel, it's safe to delete identity
+          await adminSupabase.auth.admin.deleteUser(member.user_id)
+        } else {
+          // just let cascade delete the hotel_users relationship for this hotel
+        }
       }
-    } else {
-      console.error("Error fetching users for deletion:", usersError);
     }
 
-    // 2. Delete the hotel from DB. Foreign keys have ON DELETE CASCADE
-    const { error: deleteError } = await adminSupabase.from('hotels').delete().eq('id', hotelId);
+    // 2. Delete the hotel (cascade delete handles hotel_users, profiles etc mapping if FK set up)
+    const { error: deleteError } = await adminSupabase.from('hotels').delete().eq('id', hotelId)
     
     if (deleteError) {
-      console.error('Error deleting hotel:', deleteError);
-      return { success: false, error: 'Failed to delete hotel database record.' };
+      console.error('Error deleting hotel:', deleteError)
+      return { success: false, error: 'Error al eliminar el registro del hotel.' }
     }
 
-    revalidatePath('/admin');
-    return { success: true };
+    revalidatePath('/admin')
+    return { success: true }
   } catch (err: any) {
-    console.error('Unexpected error during hotel deletion:', err);
-    return { success: false, error: 'Unexpected error occurred.' };
+    console.error('Unexpected error during hotel deletion:', err)
+    return { success: false, error: 'Ocurrió un error inesperado.' }
   }
 }
 
 export async function resetHotelPassword(hotelId: string, newPassword: string) {
   const authorized = await isAuthorized()
-  if (!authorized) return { success: false, error: 'Unauthorized Access' }
+  if (!authorized) return { success: false, error: 'Acceso no autorizado' }
 
   if (!hotelId || !newPassword || newPassword.length < 6) {
     return { success: false, error: 'La contraseña debe tener al menos 6 caracteres' }
@@ -146,17 +206,38 @@ export async function resetHotelPassword(hotelId: string, newPassword: string) {
   const adminSupabase = createAdminClient()
 
   try {
-    const { data: { users }, error: usersError } = await adminSupabase.auth.admin.listUsers()
-    if (usersError || !users) return { success: false, error: 'No se pudieron recuperar los usuarios' }
+    // 1. Fetch the contact_email for this hotel or owners
+    const { data: hotelDb } = await adminSupabase.from('hotels').select('contact_email').eq('id', hotelId).single()
+    const contactEmail = hotelDb?.contact_email
 
-    const hotelUsers = users.filter((u: any) => 
-      u.app_metadata?.hotel_id === hotelId || u.user_metadata?.hotel_id === hotelId
-    )
+    // 2. Find who belongs to this hotel
+    const { data: mappings } = await adminSupabase.from('hotel_users').select('user_id, role').eq('hotel_id', hotelId)
+    
+    if (!mappings || mappings.length === 0) {
+      return { success: false, error: 'No se encontraron usuarios vinculados a este hotel en la base de datos' }
+    }
 
-    if (hotelUsers.length === 0) return { success: false, error: 'No se encontró una cuenta de usuario para este hotel' }
+    // Filter to owners or the main contact
+    const { data: { users } } = await adminSupabase.auth.admin.listUsers()
+    
+    // Attempt to target specifically the contact_email first
+    const targetUserAuth = users?.find(u => u.email === contactEmail)
+    let userIdsToUpdate: string[] = []
 
-    for (const user of hotelUsers) {
-      const { error } = await adminSupabase.auth.admin.updateUserById(user.id, { password: newPassword })
+    if (targetUserAuth && mappings.some(m => m.user_id === targetUserAuth.id)) {
+      userIdsToUpdate = [targetUserAuth.id]
+    } else {
+      // If not matching by email precisely, update anyone who's an 'OWNER'
+      const ownerIds = mappings.filter(m => m.role === 'OWNER').map(m => m.user_id)
+      userIdsToUpdate = ownerIds.length > 0 ? ownerIds : mappings.map(m => m.user_id)
+    }
+
+    if (userIdsToUpdate.length === 0) {
+      return { success: false, error: 'No se encontraron usuarios administradores para este hotel' }
+    }
+
+    for (const uid of userIdsToUpdate) {
+      const { error } = await adminSupabase.auth.admin.updateUserById(uid, { password: newPassword })
       if (error) throw error
     }
 
@@ -166,4 +247,93 @@ export async function resetHotelPassword(hotelId: string, newPassword: string) {
     return { success: false, error: err.message || 'Error inesperado al reiniciar la contraseña' }
   }
 }
+
+
+/**
+ * Staff / User Management Actions
+ */
+
+export async function getHotelUsers(hotelId: string) {
+  const authorized = await isAuthorized()
+  if (!authorized) throw new Error('Unauthorized')
+
+  const adminSupabase = createAdminClient()
+  
+  const { data, error } = await adminSupabase
+    .from('profiles')
+    .select('*')
+    .in('id', (
+      adminSupabase
+        .from('hotel_users')
+        .select('user_id')
+        .eq('hotel_id', hotelId)
+    ))
+  
+  // Wait, direct subquery in Supabase might not work perfectly like this depending on version
+  // Let's do it in two steps for reliability
+  const { data: huData } = await adminSupabase
+    .from('hotel_users')
+    .select('user_id, role')
+    .eq('hotel_id', hotelId)
+  
+  if (!huData) return []
+
+  const userIds = huData.map(d => d.user_id)
+  const { data: profiles } = await adminSupabase
+    .from('profiles')
+    .select('*')
+    .in('id', userIds)
+  
+  return profiles?.map(p => ({
+    ...p,
+    hotel_role: huData.find(hu => hu.user_id === p.id)?.role
+  })) || []
+}
+
+export async function resetStaffPassword(userId: string) {
+  const authorized = await isAuthorized()
+  if (!authorized) return { success: false, error: 'Acceso no autorizado' }
+
+  const adminSupabase = createAdminClient()
+  
+  const { data: user } = await adminSupabase.auth.admin.getUserById(userId)
+  if (!user.user?.email) return { success: false, error: 'Usuario no encontrado' }
+
+  if (process.env.NODE_ENV === 'development') {
+    const { data, error } = await adminSupabase.auth.admin.generateLink({
+      type: 'recovery',
+      email: user.user.email,
+      options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/update-password` }
+    })
+    
+    if (error) return { success: false, error: error.message }
+    
+    console.log('\n\n🟢 MODO DEV - LINK DE RECUPERACIÓN GENERADO:');
+    console.log(data.properties?.action_link);
+    console.log('👆 (Haz CTRL+Click sobre el enlace para simular que abriste el email sin gastar la cuota)\n\n');
+  } else {
+    const { error } = await adminSupabase.auth.resetPasswordForEmail(user.user.email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/update-password`
+    })
+
+    if (error) return { success: false, error: error.message }
+  }
+  return { success: true }
+}
+
+export async function deleteStaffUser(userId: string) {
+  const authorized = await isAuthorized()
+  if (!authorized) return { success: false, error: 'Acceso no autorizado' }
+
+  const adminSupabase = createAdminClient()
+  
+  // Delete from Auth (profiles and hotel_users will cascade if REFERENCES set with ON DELETE CASCADE)
+  const { error } = await adminSupabase.auth.admin.deleteUser(userId)
+  
+  if (error) return { success: false, error: error.message }
+  
+  revalidatePath('/admin')
+  return { success: true }
+}
+
 

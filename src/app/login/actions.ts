@@ -17,11 +17,31 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
-    redirect('/login?message=Could not authenticate user')
+    redirect('/login?message=Email o contraseña incorrectos')
   }
 
   revalidatePath('/', 'layout')
   redirect('/dashboard')
+}
+
+export async function forgotPassword(formData: FormData) {
+  const supabase = createClient()
+  const email = formData.get('email') as string
+
+  if (!email) {
+    redirect('/login?view=forgot&message=Debes proveer un email')
+  }
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/update-password`
+  })
+
+  if (error) {
+    console.error('Password reset error:', error)
+    redirect('/login?view=forgot&message=Error al enviar el correo. Revisa tu dirección.')
+  }
+
+  redirect('/login?message=Revisa tu correo para restablecer tu contraseña.')
 }
 
 export async function logout() {
