@@ -259,17 +259,6 @@ export async function getHotelUsers(hotelId: string) {
 
   const adminSupabase = createAdminClient()
   
-  const { data, error } = await adminSupabase
-    .from('profiles')
-    .select('*')
-    .in('id', (
-      adminSupabase
-        .from('hotel_users')
-        .select('user_id')
-        .eq('hotel_id', hotelId)
-    ))
-  
-  // Wait, direct subquery in Supabase might not work perfectly like this depending on version
   // Let's do it in two steps for reliability
   const { data: huData } = await adminSupabase
     .from('hotel_users')
