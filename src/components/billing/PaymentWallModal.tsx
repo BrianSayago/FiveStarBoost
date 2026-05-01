@@ -11,7 +11,7 @@ import { useSubscription } from '@/components/providers/SubscriptionProvider';
  * - Dynamically shows 20% discount ONLY if user is still in trial period
  * - Redirects to Stripe Checkout
  */
-export function PaymentWallModal() {
+export function PaymentWallModal({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const { isExpired, hotel, showEarlyDiscount } = useSubscription();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -19,7 +19,7 @@ export function PaymentWallModal() {
 
   // Trap focus inside modal and prevent Escape from closing anything
   useEffect(() => {
-    if (!isExpired) return;
+    if (!isExpired || isSuperAdmin) return;
 
     const trapFocus = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -41,9 +41,9 @@ export function PaymentWallModal() {
 
     document.addEventListener('keydown', trapFocus, true);
     return () => document.removeEventListener('keydown', trapFocus, true);
-  }, [isExpired]);
+  }, [isExpired, isSuperAdmin]);
 
-  if (!isExpired) return null;
+  if (!isExpired || isSuperAdmin) return null;
 
   const handleActivate = async () => {
     if (!hotel?.id) return;

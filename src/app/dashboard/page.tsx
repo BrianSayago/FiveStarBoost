@@ -492,7 +492,7 @@ function DashboardContent() {
       <AlertPopup />
 
       {/* Payment Wall — renders fullscreen when trial expired */}
-      <PaymentWallModal />
+      <PaymentWallModal isSuperAdmin={stats?.is_super_admin} />
 
     </div>
   );
