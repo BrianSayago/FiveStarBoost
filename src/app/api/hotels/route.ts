@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
+import { DEMO_HOTEL } from '@/utils/demoData';
 
 /**
  * GET /api/hotels
@@ -8,10 +10,17 @@ import { createClient } from '@/utils/supabase/server';
  * Used by SubscriptionProvider to auto-discover active_hotel_id on first login.
  */
 export async function GET() {
+  const cookieStore = cookies();
+  const isDemo = cookieStore.get('demo_mode')?.value === 'true';
+
+  if (isDemo) {
+    return NextResponse.json([DEMO_HOTEL]);
+  }
+
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) return NextResponse.json([DEMO_HOTEL]);
 
     // Fetch hotels where this user has a membership record
     const { data, error } = await supabase
@@ -26,10 +35,10 @@ export async function GET() {
       .map((row: any) => row.hotels)
       .filter(Boolean);
 
-    return NextResponse.json(hotels);
+    return NextResponse.json(hotels.length > 0 ? hotels : [DEMO_HOTEL]);
   } catch (error: any) {
     console.error('[GET /api/hotels] Error:', error);
-    return NextResponse.json({ error: error.message || 'Error interno' }, { status: 500 });
+    return NextResponse.json([DEMO_HOTEL]);
   }
 }
 

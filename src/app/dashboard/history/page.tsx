@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft, History, User } from 'lucide-react';
 import { HistorySearch } from './HistorySearch';
 import { DeleteStayButton } from '@/components/dashboard/DeleteStayButton';
+import { cookies } from 'next/headers';
+import { getDemoHistoryStays } from '@/utils/demoData';
 
 export const metadata = { title: "Historial | Hotel SaaS" };
 
@@ -13,40 +15,54 @@ export default async function HistoryPage({
   searchParams: { query?: string };
 }) {
   const query = searchParams?.query || '';
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const cookieStore = cookies();
+  const isDemo = cookieStore.get('demo_mode')?.value === 'true';
 
-  if (!user) return redirect("/login");
+  let sortedStays: any[] = [];
 
-  // Fetch from Supabase using Postgres text Search on guests
-  let req = supabase
-    .from('guest_stays')
-    .select(`
-      id, check_in_date, check_out_date, room_number, status, 
-      guests!inner(name, email),
-      survey_responses(rating, stars)
-    `)
-    .order('check_out_date', { ascending: false })
-    .limit(300); // Reasonable limit for MVP. Pagination can be added via offset if needed.
+  if (isDemo) {
+    sortedStays = getDemoHistoryStays(query);
+  } else {
+    const supabase = createClient();
+    let user = null;
+    try {
+      const { data } = await supabase.auth.getUser();
+      user = data?.user;
+    } catch {
+      // ignore
+    }
 
-  if (query) {
-    // Basic ilike search on guest name or room or email
-    req = req.or(`name.ilike.%${query}%,email.ilike.%${query}%`, { foreignTable: 'guests' });
+    if (!user) {
+      sortedStays = getDemoHistoryStays(query);
+    } else {
+      // Fetch from Supabase using Postgres text Search on guests
+      let req = supabase
+        .from('guest_stays')
+        .select(`
+          id, check_in_date, check_out_date, room_number, status, 
+          guests!inner(name, email),
+          survey_responses(rating, stars)
+        `)
+        .order('check_out_date', { ascending: false })
+        .limit(300);
+
+      if (query) {
+        req = req.or(`name.ilike.%${query}%,email.ilike.%${query}%`, { foreignTable: 'guests' });
+      }
+
+      const { data: stays, error } = await req;
+
+      if (error) {
+        console.error("Error fetching history:", error);
+      }
+
+      sortedStays = stays ? [...stays].sort((a, b) => {
+        if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1;
+        if (b.status === 'ACTIVE' && a.status !== 'ACTIVE') return 1;
+        return new Date(b.check_out_date).getTime() - new Date(a.check_out_date).getTime();
+      }) : [];
+    }
   }
-
-  const { data: stays, error } = await req;
-
-  if (error) {
-    console.error("Error fetching history:", error);
-  }
-
-  // Sort: Active first, then by check_out_date desc
-  const sortedStays = stays ? [...stays].sort((a, b) => {
-    if (a.status === 'ACTIVE' && b.status !== 'ACTIVE') return -1;
-    if (b.status === 'ACTIVE' && a.status !== 'ACTIVE') return 1;
-    // Both active or both inactive, sort by checkout desc (handled by DB mostly, but just in case)
-    return new Date(b.check_out_date).getTime() - new Date(a.check_out_date).getTime();
-  }) : [];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8 transition-colors duration-200">

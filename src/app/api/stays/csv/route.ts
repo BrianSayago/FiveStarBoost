@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { fromZonedTime } from 'date-fns-tz';
+import { cookies } from 'next/headers';
 
 const supabaseAdmin = createAdminClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,18 +10,10 @@ const supabaseAdmin = createAdminClient(
 );
 
 export async function POST(request: Request) {
+  const cookieStore = cookies();
+  const isDemo = cookieStore.get('demo_mode')?.value === 'true';
+
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const { data: hotels } = await supabase.from('hotels').select('id, timezone, check_in_time, check_out_time').limit(1).single();
-    if (!hotels) return NextResponse.json({ error: 'No hotel assigned' }, { status: 403 });
-    const hotel_id = hotels.id;
-    const hotelTimezone = hotels.timezone || 'America/Argentina/Buenos_Aires';
-    const check_in_time = hotels.check_in_time || '15:00';
-    const check_out_time = hotels.check_out_time || '11:00';
-
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -39,8 +32,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'CSV file is empty or only contains headers' }, { status: 400 });
     }
 
-    // Skip header row
     const dataRows = rows.slice(1);
+
+    if (isDemo) {
+      return NextResponse.json({
+        imported_rows: dataRows.length,
+        failed_rows: 0,
+        message: 'Importación simulada con éxito en Modo Demo'
+      });
+    }
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({
+        imported_rows: dataRows.length,
+        failed_rows: 0,
+        message: 'Importación simulada con éxito en Modo Demo'
+      });
+    }
+
+    const { data: hotels } = await supabase.from('hotels').select('id, timezone, check_in_time, check_out_time').limit(1).single();
+    if (!hotels) return NextResponse.json({ error: 'No hotel assigned' }, { status: 403 });
+    const hotel_id = hotels.id;
+    const hotelTimezone = hotels.timezone || 'America/Argentina/Buenos_Aires';
+    const check_in_time = hotels.check_in_time || '15:00';
+    const check_out_time = hotels.check_out_time || '11:00';
+
     const parsedData: any[] = [];
     const emailsToLookup = new Set<string>();
 

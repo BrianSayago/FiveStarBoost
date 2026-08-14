@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { login, forgotPassword } from './actions'
-import { Star, ArrowUpRight, Mail, Lock, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { login, forgotPassword, enterDemoMode } from './actions'
+import { Star, ArrowUpRight, Mail, Lock, Loader2, ArrowLeft, CheckCircle2, Sparkles, ArrowRight } from 'lucide-react'
 
 export default function LoginPage({
   searchParams,
@@ -11,12 +11,17 @@ export default function LoginPage({
 }) {
   const [isLogin, setIsLogin] = useState(searchParams.view !== 'forgot')
   const [loading, setLoading] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(false)
 
   // This will manage loading state when either form submits
   const handleSubmit = (e: React.FormEvent) => {
     // Next.js formAction handles the actual submission, 
     // we just use this to trigger the frontend loader immediately.
     setLoading(true)
+  }
+
+  const handleDemoClick = () => {
+    setDemoLoading(true)
   }
 
   return (
@@ -34,7 +39,7 @@ export default function LoginPage({
         <div className="backdrop-blur-xl bg-slate-900/60 border border-slate-700/50 shadow-2xl rounded-3xl p-8 transform transition-all duration-500 hover:border-slate-600/50 group">
           
           {/* Logo Section */}
-          <div className="flex flex-col items-center justify-center mb-10 transition-transform duration-500 group-hover:scale-105">
+          <div className="flex flex-col items-center justify-center mb-8 transition-transform duration-500 group-hover:scale-105">
             <img 
               src="/logo-icon.png" 
               alt="Five Star Boost Logo" 
@@ -67,55 +72,104 @@ export default function LoginPage({
           {/* Forms container with elegant transitions */}
           <div className="relative">
             {isLogin ? (
-              <form onSubmit={handleSubmit} action={login} className="flex flex-col gap-5 animate-in slide-in-from-bottom-4 fade-in duration-500">
-                
-                <div className="space-y-1.5">
-                  <label className="text-sm font-semibold text-slate-300 ml-1">Email Corporativo</label>
-                  <div className="relative group/input">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 transition-colors group-focus-within/input:text-blue-400" />
-                    <input
-                      name="email"
-                      type="email"
-                      placeholder="ti@tu-hotel.com"
-                      required
-                      className="w-full pl-12 pr-4 py-3.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all font-medium"
-                    />
+              <div className="space-y-6">
+                <form onSubmit={handleSubmit} action={login} className="flex flex-col gap-5 animate-in slide-in-from-bottom-4 fade-in duration-500">
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-slate-300 ml-1">Email Corporativo</label>
+                    <div className="relative group/input">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 transition-colors group-focus-within/input:text-blue-400" />
+                      <input
+                        name="email"
+                        type="email"
+                        placeholder="ti@tu-hotel.com"
+                        required
+                        className="w-full pl-12 pr-4 py-3.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all font-medium"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center ml-1">
-                    <label className="text-sm font-semibold text-slate-300">Contraseña</label>
-                    <button 
-                      type="button"
-                      onClick={() => setIsLogin(false)}
-                      className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center ml-1">
+                      <label className="text-sm font-semibold text-slate-300">Contraseña</label>
+                      <button 
+                        type="button"
+                        onClick={() => setIsLogin(false)}
+                        className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        ¿La olvidaste?
+                      </button>
+                    </div>
+                    <div className="relative group/input">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 transition-colors group-focus-within/input:text-blue-400" />
+                      <input
+                        name="password"
+                        type="password"
+                        placeholder="••••••••"
+                        required
+                        className="w-full pl-12 pr-4 py-3.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || demoLoading}
+                    className="mt-2 flex items-center justify-center w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group overflow-hidden relative"
+                  >
+                    <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                    {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Iniciar Sesión'}
+                  </button>
+
+                </form>
+
+                {/* DEMO MODE SHOWCASE SECTION */}
+                <div className="pt-2 border-t border-slate-800/80">
+                  <div className="relative flex py-2 items-center justify-center mb-3">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/90 px-3 py-0.5 rounded-full border border-slate-800">
+                      O explora sin credenciales
+                    </span>
+                  </div>
+
+                  <form action={enterDemoMode} onSubmit={handleDemoClick}>
+                    <button
+                      type="submit"
+                      disabled={demoLoading || loading}
+                      className="w-full relative group overflow-hidden rounded-2xl p-[1px] transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] focus:outline-none"
                     >
-                      ¿La olvidaste?
+                      <div className="absolute inset-0 bg-gradient-to-r from-amber-400 via-indigo-500 to-emerald-400 rounded-2xl opacity-75 group-hover:opacity-100 transition-opacity blur-[2px]" />
+                      <div className="relative bg-slate-950/90 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between gap-3 text-left transition-colors group-hover:bg-slate-900/95 border border-white/10">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400/20 to-indigo-500/20 border border-amber-400/30 flex items-center justify-center shrink-0 text-amber-300 group-hover:scale-110 transition-transform">
+                            <Sparkles className="w-5 h-5 animate-pulse" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-white group-hover:text-amber-200 transition-colors">
+                                Probar Demo Interactiva
+                              </span>
+                              <span className="text-[10px] font-extrabold uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.5 rounded">
+                                Portfolio
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 truncate mt-0.5">
+                              Explora con métricas y alertas reales precargadas
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 text-slate-400 group-hover:text-white transition-colors group-hover:translate-x-0.5 duration-200">
+                          {demoLoading ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-amber-300" />
+                          ) : (
+                            <ArrowRight className="w-5 h-5" />
+                          )}
+                        </div>
+                      </div>
                     </button>
-                  </div>
-                  <div className="relative group/input">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 transition-colors group-focus-within/input:text-blue-400" />
-                    <input
-                      name="password"
-                      type="password"
-                      placeholder="••••••••"
-                      required
-                      className="w-full pl-12 pr-4 py-3.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all font-medium"
-                    />
-                  </div>
+                  </form>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-4 flex items-center justify-center w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed group overflow-hidden relative"
-                >
-                  <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Ingresar al Dashboard'}
-                </button>
-
-              </form>
+              </div>
             ) : (
               <form onSubmit={handleSubmit} action={forgotPassword} className="flex flex-col gap-5 animate-in slide-in-from-right-8 fade-in duration-500">
                 

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 
 export async function login(formData: FormData) {
@@ -20,8 +21,32 @@ export async function login(formData: FormData) {
     redirect('/login?message=Email o contraseña incorrectos')
   }
 
+  // Clear demo mode if logging in with real credentials
+  const cookieStore = cookies()
+  cookieStore.delete('demo_mode')
+
   revalidatePath('/', 'layout')
   redirect('/dashboard')
+}
+
+export async function enterDemoMode() {
+  const cookieStore = cookies()
+  cookieStore.set('demo_mode', 'true', {
+    path: '/',
+    httpOnly: false, // allow client-side checks if needed
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 7 // 7 days
+  })
+
+  revalidatePath('/', 'layout')
+  redirect('/dashboard')
+}
+
+export async function exitDemoMode() {
+  const cookieStore = cookies()
+  cookieStore.delete('demo_mode')
+  revalidatePath('/', 'layout')
+  redirect('/login')
 }
 
 export async function forgotPassword(formData: FormData) {
@@ -45,6 +70,9 @@ export async function forgotPassword(formData: FormData) {
 }
 
 export async function logout() {
+  const cookieStore = cookies()
+  cookieStore.delete('demo_mode')
+  
   const supabase = createClient()
   await supabase.auth.signOut()
   redirect('/login')

@@ -54,9 +54,17 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const isDemo = request.cookies.get('demo_mode')?.value === 'true'
 
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data?.user || null
+  } catch {
+    // Silently continue for offline or mock demo environments
+  }
+
+  if (!user && !isDemo && request.nextUrl.pathname.startsWith('/dashboard')) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

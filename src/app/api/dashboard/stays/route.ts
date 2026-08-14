@@ -1,42 +1,61 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
+import { DEMO_ACTIVE_STAYS } from '@/utils/demoData';
 
 export async function GET(request: Request) {
+  const cookieStore = cookies();
+  const isDemo = cookieStore.get('demo_mode')?.value === 'true';
+
+  if (isDemo) {
+    return NextResponse.json(DEMO_ACTIVE_STAYS);
+  }
+
   const supabase = createClient();
   const now = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from('guest_stays')
-    .select(`
-      id,
-      room_number,
-      check_in_date,
-      check_out_date,
-      guests ( name )
-    `)
-    .lte('check_in_date', now)
-    .gte('check_out_date', now)
-    .neq('status', 'CHECKED_OUT')
-    .neq('status', 'COMPLETED');
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(DEMO_ACTIVE_STAYS);
+    }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { data, error } = await supabase
+      .from('guest_stays')
+      .select(`
+        id,
+        room_number,
+        check_in_date,
+        check_out_date,
+        guests ( name )
+      `)
+      .lte('check_in_date', now)
+      .gte('check_out_date', now)
+      .neq('status', 'CHECKED_OUT')
+      .neq('status', 'COMPLETED');
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const stays = (data || []).map((stay: any) => ({
+      id: stay.id,
+      guest_name: stay.guests?.name || 'Unknown',
+      room_number: stay.room_number,
+      check_in_date: stay.check_in_date,
+      check_out_date: stay.check_out_date
+    }));
+
+    return NextResponse.json(stays);
+  } catch {
+    return NextResponse.json(DEMO_ACTIVE_STAYS);
   }
-
-  const stays = data.map((stay: any) => ({
-    id: stay.id,
-    guest_name: stay.guests?.name || 'Unknown',
-    room_number: stay.room_number,
-    check_in_date: stay.check_in_date,
-    check_out_date: stay.check_out_date
-  }));
-
-  return NextResponse.json(stays);
 }
 
 export async function PATCH(request: Request) {
-  const supabase = createClient();
-  
+  const cookieStore = cookies();
+  const isDemo = cookieStore.get('demo_mode')?.value === 'true';
+
   try {
     const body = await request.json();
     const { action, id, check_in_date, check_out_date } = body;
@@ -44,6 +63,12 @@ export async function PATCH(request: Request) {
     if (!id) {
       return NextResponse.json({ error: 'Falta el ID de la estadía' }, { status: 400 });
     }
+
+    if (isDemo) {
+      return NextResponse.json({ success: true, message: 'Operación demo exitosa' });
+    }
+
+    const supabase = createClient();
 
     if (action === 'checkout') {
       const { error } = await supabase
@@ -83,10 +108,10 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const supabase = createClient();
-  
+  const cookieStore = cookies();
+  const isDemo = cookieStore.get('demo_mode')?.value === 'true';
+
   try {
-    // Determine ID from search params
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -94,6 +119,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Falta el ID de la estadía a eliminar' }, { status: 400 });
     }
 
+    if (isDemo) {
+      return NextResponse.json({ success: true, message: 'Estadía demo eliminada' });
+    }
+
+    const supabase = createClient();
     const { error } = await supabase
       .from('guest_stays')
       .delete()

@@ -10,7 +10,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { SubscriptionProvider } from '@/components/providers/SubscriptionProvider';
 import { TrialBanner } from '@/components/billing/TrialBanner';
 import { PaymentWallModal } from '@/components/billing/PaymentWallModal';
-import { Star, ArrowUpRight } from 'lucide-react';
+import { Star, ArrowUpRight, Sparkles, BellRing, LogOut } from 'lucide-react';
 
 // --- Types ---
 interface DashboardStats {
@@ -49,6 +49,7 @@ function DashboardContent() {
   const [stays, setStays] = useState<Stay[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
@@ -57,6 +58,35 @@ function DashboardContent() {
 
   const [editStayModalOpen, setEditStayModalOpen] = useState(false);
   const [editingStay, setEditingStay] = useState<Stay | null>(null);
+
+  const triggerSimulatedAlert = () => {
+    const demoItems = [
+      {
+        id: 'sim-' + Date.now(),
+        guest_name: 'Guillermo Arismendi',
+        room_number: '215',
+        message: 'Huésped calificó con 1 estrella: "La conexión Wi-Fi se desconecta constantemente en el piso 2". Intercepción ejecutada.',
+        type: 'NEGATIVE_FEEDBACK'
+      },
+      {
+        id: 'sim-' + Date.now(),
+        guest_name: 'Martina Benítez',
+        room_number: '104',
+        message: 'URGENTE: Huésped solicita asistencia técnica con la caja fuerte de la habitación.',
+        type: 'IMMEDIATE_HELP'
+      }
+    ];
+    const picked = demoItems[Math.floor(Math.random() * demoItems.length)];
+    window.dispatchEvent(new CustomEvent('demo:new-alert', { detail: picked }));
+    
+    // Also update open alerts count on UI
+    if (stats) {
+      setStats({
+        ...stats,
+        alerts_open: (stats.alerts_open || 0) + 1
+      });
+    }
+  };
 
   const handleOpenModal = (type: 'stays' | 'positive' | 'negative') => {
     if (!stats) return;
@@ -97,6 +127,10 @@ function DashboardContent() {
         setStats(statsData);
         setAlerts(alertsData);
         setStays(staysData);
+
+        if (typeof document !== 'undefined') {
+          setIsDemoMode(document.cookie.includes('demo_mode=true') || statsData?.hotel_name?.includes('Grand Hotel Vista'));
+        }
       } catch (err: any) {
         console.error(err);
         setError(err.message || 'Error desconocido');
@@ -223,6 +257,51 @@ function DashboardContent() {
 
           {/* Trial Banner — shows during active trial only */}
           <TrialBanner />
+
+          {/* Demo Mode Showcase Banner */}
+          {isDemoMode && (
+            <div className="relative overflow-hidden bg-gradient-to-r from-amber-500/10 via-indigo-500/10 to-emerald-500/10 border border-amber-500/30 dark:border-amber-400/25 rounded-3xl p-4 sm:p-5 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg shadow-amber-500/5 animate-in fade-in duration-500">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-500 dark:text-amber-300 flex items-center justify-center shrink-0 border border-amber-400/30 shadow-inner">
+                  <Sparkles className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-wider bg-amber-400/20 border border-amber-400/30 px-2 py-0.5 rounded-md">
+                      Modo Demo Interactivo / Portfolio
+                    </span>
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                      En vivo
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 font-medium">
+                    Explorando con datos de muestra precargados. Puedes interactuar con la lista de huéspedes, check-outs y disparar alertas en tiempo real.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
+                <button
+                  onClick={triggerSimulatedAlert}
+                  type="button"
+                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-amber-500/20 hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-1.5"
+                >
+                  <BellRing className="w-3.5 h-3.5" />
+                  Simular Alerta en Vivo
+                </button>
+
+                <form action={logout}>
+                  <button
+                    type="submit"
+                    className="px-3.5 py-2 bg-white/60 hover:bg-white dark:bg-slate-800/60 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all border border-slate-200 dark:border-slate-700"
+                  >
+                    Salir de Demo
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between lg:items-end gap-4 pb-2">

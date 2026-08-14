@@ -4,52 +4,62 @@ import { redirect } from "next/navigation";
 import SettingsFormClient from "./SettingsFormClient";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { cookies } from "next/headers";
+import { DEMO_HOTEL } from "@/utils/demoData";
 
 export const metadata = { title: "Configuración | Hotel SaaS" };
 
 export default async function SettingsPage() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const cookieStore = cookies();
+  const isDemo = cookieStore.get('demo_mode')?.value === 'true';
 
-  if (!user) return redirect("/login");
+  let hotel = null;
 
-  let hotelId = user.app_metadata?.hotel_id || user.user_metadata?.hotel_id;
-
-  const adminEmails = process.env.SUPER_ADMIN_EMAILS
-    ? process.env.SUPER_ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase())
-    : [];
-  const isSuperAdmin = user && adminEmails.includes(user.email?.toLowerCase() || '');
-  
-  const adminSupabase = createAdminClient();
-
-  if (!hotelId) {
-    if (isSuperAdmin) {
-      const { data: firstHotel } = await adminSupabase.from('hotels').select('id').limit(1).single();
-      if (firstHotel) hotelId = firstHotel.id;
+  if (isDemo) {
+    hotel = DEMO_HOTEL;
+  } else {
+    const supabase = createClient();
+    let user = null;
+    try {
+      const { data } = await supabase.auth.getUser();
+      user = data?.user;
+    } catch {
+      // ignore
     }
 
-    if (!hotelId) {
-      return (
-        <div className="p-8 text-red-500 dark:text-red-400 bg-gray-50 dark:bg-slate-950 min-h-screen">
-          <div className="max-w-4xl mx-auto">Tu usuario no tiene un hotel asignado.</div>
-        </div>
-      );
+    if (!user) {
+      hotel = DEMO_HOTEL;
+    } else {
+      let hotelId = user.app_metadata?.hotel_id || user.user_metadata?.hotel_id;
+
+      const adminEmails = process.env.SUPER_ADMIN_EMAILS
+        ? process.env.SUPER_ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase())
+        : [];
+      const isSuperAdmin = user && adminEmails.includes(user.email?.toLowerCase() || '');
+      
+      const adminSupabase = createAdminClient();
+
+      if (!hotelId) {
+        if (isSuperAdmin) {
+          const { data: firstHotel } = await adminSupabase.from('hotels').select('id').limit(1).single();
+          if (firstHotel) hotelId = firstHotel.id;
+        }
+
+        if (!hotelId) {
+          hotel = DEMO_HOTEL;
+        }
+      }
+
+      if (hotelId) {
+        const { data: hotelData } = await adminSupabase
+          .from("hotels")
+          .select("id, name, contact_email, contact_phone, check_in_time, check_out_time, google_review_link, logo_url")
+          .eq("id", hotelId)
+          .single();
+
+        hotel = hotelData || DEMO_HOTEL;
+      }
     }
-  }
-
-  // Fetch using Admin Client since hotels table lacks direct user RLS policies right now
-  const { data: hotel, error } = await adminSupabase
-    .from("hotels")
-    .select("id, name, contact_email, contact_phone, check_in_time, check_out_time, google_review_link, logo_url")
-    .eq("id", hotelId)
-    .single();
-
-  if (error || !hotel) {
-    return (
-      <div className="p-8 text-red-500 dark:text-red-400 bg-gray-50 dark:bg-slate-950 min-h-screen">
-        <div className="max-w-4xl mx-auto">Error al cargar la configuración del hotel.</div>
-      </div>
-    );
   }
 
   return (

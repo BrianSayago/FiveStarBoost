@@ -1,17 +1,27 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-
 import { createAdminClient } from '@/utils/supabase/admin';
+import { cookies } from 'next/headers';
+import { getDemoStats } from '@/utils/demoData';
 
 export async function GET(request: Request) {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const adminSupabase = createAdminClient();
+  const cookieStore = cookies();
+  const isDemo = cookieStore.get('demo_mode')?.value === 'true';
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const supabase = createClient();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data?.user;
+  } catch {
+    // offline or demo
   }
 
+  if (isDemo || !user) {
+    return NextResponse.json(getDemoStats());
+  }
+
+  const adminSupabase = createAdminClient();
   const hotelId = user.app_metadata.hotel_id || user.user_metadata?.hotel_id;
 
   const adminEmails = process.env.SUPER_ADMIN_EMAILS

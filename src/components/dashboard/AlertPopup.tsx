@@ -38,63 +38,98 @@ export function AlertPopup() {
   };
 
   useEffect(() => {
-    const supabase = createClient();
+    // Custom event listener for simulated demo alerts
+    const handleDemoAlert = (e: any) => {
+      const detail = e.detail;
+      if (!detail) return;
+      const fullAlert: AlertDetail = {
+        id: detail.id || 'demo-' + Date.now(),
+        guest_name: detail.guest_name || 'Huésped Demo',
+        room_number: detail.room_number || '101',
+        message: detail.message || 'Alerta de prueba recibida en tiempo real',
+        created_at: new Date().toISOString(),
+        type: detail.type || 'IMMEDIATE_HELP'
+      };
 
-    const fetchAlertDetails = async (newAlert: any) => {
-      // Query the full details of the alert using RLS so we only get it if it belongs to our hotel
-      const { data, error } = await supabase
-        .from('alerts')
-        .select(`
-          id,
-          message,
-          created_at,
-          type,
-          guest_stays (
-            room_number,
-            guests ( name )
-          )
-        `)
-        .eq('id', newAlert.id)
-        .single();
+      setQueue(prev => [fullAlert, ...prev.filter(a => a.id !== fullAlert.id)]);
 
-      if (!error && data) {
-        const fullAlert: AlertDetail = {
-          id: data.id,
-          guest_name: (data.guest_stays as any)?.guests?.name || 'Desconocido',
-          room_number: (data.guest_stays as any)?.room_number || '?',
-          message: data.message,
-          created_at: data.created_at,
-          type: data.type
-        };
-
-        setQueue(prev => {
-          // Prevent duplicates
-          if (prev.find(a => a.id === fullAlert.id)) return prev;
-          return [...prev, fullAlert];
-        });
-
-        // Play sound if not muted
-        if (!isMuted && audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(e => console.error("Error playing sound:", e));
-        }
+      if (!isMuted && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
       }
     };
 
-    // Listen to INSERT on alerts
-    const channel = supabase
-      .channel('realtime:alerts')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'alerts' },
-        (payload) => {
-          fetchAlertDetails(payload.new);
+    window.addEventListener('demo:new-alert', handleDemoAlert);
+
+    let channel: any = null;
+    try {
+      const supabase = createClient();
+
+      const fetchAlertDetails = async (newAlert: any) => {
+        try {
+          const { data, error } = await supabase
+            .from('alerts')
+            .select(`
+              id,
+              message,
+              created_at,
+              type,
+              guest_stays (
+                room_number,
+                guests ( name )
+              )
+            `)
+            .eq('id', newAlert.id)
+            .single();
+
+          if (!error && data) {
+            const fullAlert: AlertDetail = {
+              id: data.id,
+              guest_name: (data.guest_stays as any)?.guests?.name || 'Desconocido',
+              room_number: (data.guest_stays as any)?.room_number || '?',
+              message: data.message,
+              created_at: data.created_at,
+              type: data.type
+            };
+
+            setQueue(prev => {
+              if (prev.find(a => a.id === fullAlert.id)) return prev;
+              return [...prev, fullAlert];
+            });
+
+            if (!isMuted && audioRef.current) {
+              audioRef.current.currentTime = 0;
+              audioRef.current.play().catch(e => console.error("Error playing sound:", e));
+            }
+          }
+        } catch {
+          // ignore error
         }
-      )
-      .subscribe();
+      };
+
+      // Listen to INSERT on alerts
+      channel = supabase
+        .channel('realtime:alerts')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'alerts' },
+          (payload) => {
+            fetchAlertDetails(payload.new);
+          }
+        )
+        .subscribe();
+    } catch {
+      // offline / demo fallback
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener('demo:new-alert', handleDemoAlert);
+      if (channel) {
+        try {
+          const supabase = createClient();
+          supabase.removeChannel(channel);
+        } catch {}
+      }
     };
   }, [isMuted]);
 
